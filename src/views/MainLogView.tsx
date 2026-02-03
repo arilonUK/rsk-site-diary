@@ -206,9 +206,18 @@ export const MainLogView = () => {
       {/* Header with Shift Info */}
       <header className="bg-slate-800 py-4 px-6">
         <div className="max-w-3xl mx-auto">
-          <h1 className="text-2xl uppercase tracking-wide text-white font-black text-center">
-            Activity Log
-          </h1>
+          <div className="flex items-center justify-between">
+            <div className="w-24" /> {/* Spacer for centering */}
+            <h1 className="text-2xl uppercase tracking-wide text-white font-black text-center">
+              Activity Log
+            </h1>
+            <button
+              onClick={() => navigate('/end-shift', { state: shiftContext })}
+              className="w-24 h-12 bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-sm uppercase rounded-lg"
+            >
+              End Shift
+            </button>
+          </div>
           <p className="text-slate-400 text-center mt-1">
             {shiftContext.rigName} • {shiftContext.crewName}
           </p>

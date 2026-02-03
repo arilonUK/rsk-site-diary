@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import SplashView from './views/SplashView';
 import SafetyCheckView from './views/SafetyCheckView';
 import MainLogView from './views/MainLogView';
+import EndShiftView from './views/EndShiftView';
 
 /**
  * RSK Digital Site Diary - Main Application
@@ -19,6 +20,7 @@ function App() {
         <Route path="/" element={<SplashView />} />
         <Route path="/safety-check" element={<SafetyCheckView />} />
         <Route path="/main-log" element={<MainLogView />} />
+        <Route path="/end-shift" element={<EndShiftView />} />
         {/* Redirect unknown routes to splash */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
