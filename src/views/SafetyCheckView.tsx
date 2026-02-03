@@ -1,20 +1,36 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 /**
- * SafetyCheckView - First step in linear flow
+ * SafetyCheckView - Safety Gateway (Spec 5.2)
  *
- * User must complete safety checklist before starting shift.
+ * Goal: Enforce mandatory safety compliance before work begins.
+ * User must complete all safety checks before proceeding.
+ *
  * Following Prime Directive Rule #1: No keyboard inputs, only tap/toggle interactions.
  */
+
+interface ShiftContext {
+  shiftId: string;
+  rigId: string;
+  rigName: string;
+  crewId: string;
+  crewName: string;
+}
+
 export const SafetyCheckView = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const shiftContext = location.state as ShiftContext | null;
+
   const [checksCompleted, setChecksCompleted] = useState({
     ppe: false,
     equipment: false,
     hazards: false,
     emergency: false,
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const allChecksComplete = Object.values(checksCompleted).every(Boolean);
 
@@ -25,28 +41,63 @@ export const SafetyCheckView = () => {
     }));
   };
 
-  const handleProceed = () => {
-    if (allChecksComplete) {
-      navigate('/main-log');
+  const handleProceed = async () => {
+    if (!allChecksComplete || isSubmitting) return;
+
+    setIsSubmitting(true);
+
+    try {
+      // Update shift record to mark safety check as completed
+      if (shiftContext?.shiftId) {
+        const { error } = await supabase
+          .from('shifts')
+          .update({ safety_check_completed: true })
+          .eq('id', shiftContext.shiftId);
+
+        if (error) {
+          console.error('Error updating shift:', error);
+        }
+      }
+
+      // Navigate to Main Log with shift context
+      navigate('/main-log', { state: shiftContext });
+    } catch (error) {
+      console.error('Error updating shift:', error);
+      setIsSubmitting(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-slate-900 p-8">
-      <div className="max-w-2xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-4">
-          <h1 className="text-3xl uppercase tracking-wide text-white font-black">
-            Safety Check
-          </h1>
-          <p className="text-slate-300 font-medium text-lg">
-            Complete all checks before starting shift
-          </p>
-        </div>
+  // Redirect to splash if no shift context (page refresh or direct navigation)
+  if (!shiftContext) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-8">
+        <p className="text-white text-xl mb-8">No active shift found.</p>
+        <button
+          onClick={() => navigate('/')}
+          className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-xl px-8 py-4 rounded-lg"
+        >
+          Return to Start
+        </button>
+      </div>
+    );
+  }
 
-        {/* Safety Checklist */}
-        <div className="space-y-6">
-          {/* PPE Check */}
+  return (
+    <div className="min-h-screen bg-slate-900 flex flex-col">
+      {/* Header */}
+      <header className="bg-slate-800 py-6 px-6">
+        <h1 className="text-2xl uppercase tracking-wide text-white font-black text-center">
+          Pre-Start Safety Checks
+        </h1>
+        <p className="text-slate-400 text-center mt-2">
+          {shiftContext.rigName} • {shiftContext.crewName}
+        </p>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 p-6 pb-32 overflow-y-auto">
+        <div className="max-w-2xl mx-auto space-y-6">
+          {/* Safety Checklist */}
           <SafetyCheckItem
             label="PPE Equipment Worn"
             sublabel="Hard hat, gloves, safety boots, hi-vis"
@@ -54,7 +105,6 @@ export const SafetyCheckView = () => {
             onToggle={() => handleToggle('ppe')}
           />
 
-          {/* Equipment Check */}
           <SafetyCheckItem
             label="Equipment Inspected"
             sublabel="Rig systems operational and safe"
@@ -62,7 +112,6 @@ export const SafetyCheckView = () => {
             onToggle={() => handleToggle('equipment')}
           />
 
-          {/* Hazards Check */}
           <SafetyCheckItem
             label="Hazards Identified"
             sublabel="Work area assessed for risks"
@@ -70,7 +119,6 @@ export const SafetyCheckView = () => {
             onToggle={() => handleToggle('hazards')}
           />
 
-          {/* Emergency Check */}
           <SafetyCheckItem
             label="Emergency Procedures Known"
             sublabel="Exit routes and first aid location confirmed"
@@ -78,20 +126,28 @@ export const SafetyCheckView = () => {
             onToggle={() => handleToggle('emergency')}
           />
         </div>
+      </main>
 
-        {/* Proceed Button */}
-        <button
-          onClick={handleProceed}
-          disabled={!allChecksComplete}
-          className={`w-full h-24 text-2xl uppercase tracking-wide rounded-lg font-black transition-colors ${
-            allChecksComplete
-              ? 'bg-green-600 hover:bg-green-500 text-white'
-              : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'
-          }`}
-        >
-          {allChecksComplete ? 'Proceed to Shift' : 'Complete All Checks'}
-        </button>
-      </div>
+      {/* Fixed Bottom Action Button */}
+      <footer className="fixed bottom-0 left-0 right-0 p-6 bg-slate-900 border-t border-slate-800">
+        <div className="max-w-2xl mx-auto">
+          <button
+            onClick={handleProceed}
+            disabled={!allChecksComplete || isSubmitting}
+            className={`w-full h-24 rounded-lg font-black text-2xl uppercase tracking-wide transition-colors ${
+              allChecksComplete && !isSubmitting
+                ? 'bg-green-600 hover:bg-green-500 text-white'
+                : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'
+            }`}
+          >
+            {isSubmitting
+              ? 'Confirming...'
+              : allChecksComplete
+              ? 'Confirm Safety & Start Work'
+              : 'Complete All Checks'}
+          </button>
+        </div>
+      </footer>
     </div>
   );
 };
@@ -108,7 +164,7 @@ const SafetyCheckItem = ({ label, sublabel, checked, onToggle }: SafetyCheckItem
   return (
     <button
       onClick={onToggle}
-      className={`w-full h-24 rounded-lg p-6 flex items-center justify-between transition-all ${
+      className={`w-full min-h-[96px] rounded-lg p-6 flex items-center justify-between transition-all ${
         checked
           ? 'bg-green-600 text-white'
           : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -118,13 +174,15 @@ const SafetyCheckItem = ({ label, sublabel, checked, onToggle }: SafetyCheckItem
         <div className="font-bold text-lg">{label}</div>
         <div className="text-sm opacity-80">{sublabel}</div>
       </div>
-      <div className={`w-16 h-16 rounded-lg flex items-center justify-center ${
+      <div className={`w-16 h-16 rounded-lg flex items-center justify-center flex-shrink-0 ${
         checked ? 'bg-white' : 'bg-slate-700'
       }`}>
-        {checked && (
+        {checked ? (
           <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
           </svg>
+        ) : (
+          <span className="text-slate-500 font-bold text-xl">NO</span>
         )}
       </div>
     </button>

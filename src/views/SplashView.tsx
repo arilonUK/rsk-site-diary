@@ -1,102 +1,235 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { Rig, CrewMember } from '../types/database';
+import { SelectableCard } from '../components/SelectableCard';
 
 /**
- * SplashView - Entry point for RSK Digital Site Diary
+ * SplashView - Shift Initialization (Spec 5.1)
+ *
+ * Goal: Quick, accurate setup of the shift context (Rig & Driller)
  *
  * Design Constraints Applied:
- * - Rule #1 (Anti-Typing): No text inputs
- * - Rule #2 (Glove-First): Massive 96px button height
- * - Rule #3 (High-Contrast): Dark slate background with safety yellow CTA
+ * - Rule #1 (Anti-Typing): Selection cards only, no text inputs
+ * - Rule #2 (Glove-First): 88px+ touch targets
+ * - Rule #3 (High-Contrast): Yellow header, dark background
  */
 export const SplashView = () => {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
 
+  // Lookup data from Supabase
+  const [rigs, setRigs] = useState<Rig[]>([]);
+  const [crewMembers, setCrewMembers] = useState<CrewMember[]>([]);
+
+  // Selection state
+  const [selectedRigId, setSelectedRigId] = useState<string>('');
+  const [selectedCrewId, setSelectedCrewId] = useState<string>('');
+
+  // UI state
+  const [showRigSelection, setShowRigSelection] = useState(false);
+  const [showCrewSelection, setShowCrewSelection] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Load lookup data on mount
   useEffect(() => {
-    // Simulate brief loading/branding display (2 seconds)
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 2000);
+    let mounted = true;
 
-    return () => clearTimeout(timer);
+    const fetchData = async () => {
+      try {
+        const { data: rigsData } = await supabase
+          .from('rigs')
+          .select('*')
+          .order('name');
+        if (mounted && rigsData) setRigs(rigsData);
+
+        const { data: crewData } = await supabase
+          .from('crew_members')
+          .select('*')
+          .order('name');
+        if (mounted && crewData) setCrewMembers(crewData);
+      } catch (error) {
+        console.error('Error loading lookup data:', error);
+      }
+    };
+
+    fetchData();
+    return () => { mounted = false; };
   }, []);
 
-  const handleStart = () => {
-    // Navigate to Safety Check (first screen in linear flow)
-    navigate('/safety-check');
+  const selectedRig = rigs.find((r) => r.id === selectedRigId);
+  const selectedCrew = crewMembers.find((c) => c.id === selectedCrewId);
+
+  const canProceed = selectedRigId && selectedCrewId && !isSubmitting;
+
+  const handleBeginChecks = async () => {
+    if (!canProceed) return;
+
+    setIsSubmitting(true);
+
+    try {
+      // Create new shift record in Supabase
+      const { data: newShift, error } = await supabase
+        .from('shifts')
+        .insert({
+          date: new Date().toISOString().split('T')[0],
+          rig_id: selectedRigId,
+          lead_driller_id: selectedCrewId,
+          safety_check_completed: false,
+          status: 'In Progress',
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating shift:', error);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Navigate to Safety Check with shift context
+      navigate('/safety-check', {
+        state: {
+          shiftId: newShift.id,
+          rigId: selectedRigId,
+          rigName: selectedRig?.name,
+          crewId: selectedCrewId,
+          crewName: selectedCrew?.name,
+        },
+      });
+    } catch (error) {
+      console.error('Error creating shift:', error);
+      setIsSubmitting(false);
+    }
   };
 
+  const todayFormatted = new Date().toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-8">
-      {/* Main Branding Container */}
-      <div className="flex flex-col items-center gap-8 max-w-2xl w-full">
+    <div className="min-h-screen bg-slate-900 flex flex-col">
+      {/* Fixed Yellow Header Banner */}
+      <header className="bg-yellow-500 py-6 px-6">
+        <h1 className="text-2xl uppercase tracking-wide text-black font-black text-center">
+          RSK Site Diary - Start Shift
+        </h1>
+      </header>
 
-        {/* App Logo/Icon Placeholder */}
-        <div className="w-32 h-32 bg-slate-800 rounded-lg flex items-center justify-center border-4 border-yellow-500">
-          {/* Replace with actual logo/icon */}
-          <svg
-            className="w-20 h-20 text-yellow-500"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"
-            />
-          </svg>
-        </div>
-
-        {/* App Title - Massive, Uppercase */}
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl uppercase tracking-wide text-white font-black">
-            RSK Digital
-          </h1>
-          <h2 className="text-3xl uppercase tracking-wide text-white font-black">
-            Site Diary
-          </h2>
-          <p className="text-slate-300 font-medium text-lg tracking-wide">
-            PROTOTYPE v0.1
-          </p>
-        </div>
-
-        {/* Tagline */}
-        <p className="text-slate-300 font-medium text-xl text-center max-w-md">
-          Ruggedized shift logging for extreme environments
-        </p>
-
-        {/* Loading State or CTA Button */}
-        {isLoading ? (
-          <div className="flex flex-col items-center gap-6 mt-8">
-            {/* Loading Spinner - High Contrast */}
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-slate-700 border-t-yellow-500"></div>
-            <p className="text-slate-400 font-medium text-lg uppercase tracking-wide">
-              Loading...
+      {/* Main Content */}
+      <main className="flex-1 p-6 pb-32 overflow-y-auto">
+        <div className="max-w-2xl mx-auto space-y-8">
+          {/* Date Display */}
+          <div className="text-center py-6">
+            <p className="text-slate-400 text-sm uppercase tracking-wide mb-2">
+              Today's Date
+            </p>
+            <p className="text-white text-2xl font-bold">
+              {todayFormatted}
             </p>
           </div>
-        ) : (
-          /* Primary CTA - Massive Touch Target */
-          <button
-            onClick={handleStart}
-            className="w-full h-24 bg-yellow-500 hover:bg-yellow-400 text-black font-black text-2xl uppercase tracking-wide rounded-lg transition-colors shadow-lg active:scale-98"
-          >
-            START SHIFT
-          </button>
-        )}
 
-        {/* Footer Info */}
-        <div className="mt-12 text-center space-y-2">
-          <p className="text-slate-500 font-medium text-sm uppercase tracking-wide">
-            Optimized for iPad
-          </p>
-          <p className="text-slate-500 font-medium text-sm uppercase tracking-wide">
-            Glove-Friendly Interface
-          </p>
+          {/* Rig Selection */}
+          <div className="space-y-4">
+            <label className="text-slate-300 font-medium text-lg uppercase tracking-wide">
+              Select Rig
+            </label>
+            <button
+              onClick={() => setShowRigSelection(!showRigSelection)}
+              className={`w-full min-h-[88px] rounded-lg px-6 flex items-center justify-between font-bold text-lg transition-colors ${
+                selectedRig
+                  ? 'bg-yellow-500 text-black hover:bg-yellow-400'
+                  : 'bg-slate-700 text-white hover:bg-slate-600'
+              }`}
+            >
+              <span>{selectedRig ? selectedRig.name : 'Tap to select rig...'}</span>
+              <span className="text-2xl">{showRigSelection ? '−' : '+'}</span>
+            </button>
+
+            {showRigSelection && (
+              <div className="space-y-4 pl-4 border-l-4 border-yellow-500">
+                {rigs.length === 0 ? (
+                  <p className="text-slate-400 py-4">Loading rigs...</p>
+                ) : (
+                  rigs.map((rig) => (
+                    <SelectableCard
+                      key={rig.id}
+                      label={rig.name}
+                      selected={rig.id === selectedRigId}
+                      onClick={() => {
+                        setSelectedRigId(rig.id);
+                        setShowRigSelection(false);
+                      }}
+                    />
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Driller Selection */}
+          <div className="space-y-4">
+            <label className="text-slate-300 font-medium text-lg uppercase tracking-wide">
+              Select Lead Driller
+            </label>
+            <button
+              onClick={() => setShowCrewSelection(!showCrewSelection)}
+              className={`w-full min-h-[88px] rounded-lg px-6 flex items-center justify-between font-bold text-lg transition-colors ${
+                selectedCrew
+                  ? 'bg-yellow-500 text-black hover:bg-yellow-400'
+                  : 'bg-slate-700 text-white hover:bg-slate-600'
+              }`}
+            >
+              <span>
+                {selectedCrew
+                  ? `${selectedCrew.name} (${selectedCrew.role})`
+                  : 'Tap to select lead driller...'}
+              </span>
+              <span className="text-2xl">{showCrewSelection ? '−' : '+'}</span>
+            </button>
+
+            {showCrewSelection && (
+              <div className="space-y-4 pl-4 border-l-4 border-yellow-500">
+                {crewMembers.length === 0 ? (
+                  <p className="text-slate-400 py-4">Loading crew members...</p>
+                ) : (
+                  crewMembers.map((crew) => (
+                    <SelectableCard
+                      key={crew.id}
+                      label={crew.name}
+                      sublabel={crew.role}
+                      selected={crew.id === selectedCrewId}
+                      onClick={() => {
+                        setSelectedCrewId(crew.id);
+                        setShowCrewSelection(false);
+                      }}
+                    />
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </main>
+
+      {/* Fixed Bottom Action Button */}
+      <footer className="fixed bottom-0 left-0 right-0 p-6 bg-slate-900 border-t border-slate-800">
+        <div className="max-w-2xl mx-auto">
+          <button
+            onClick={handleBeginChecks}
+            disabled={!canProceed}
+            className={`w-full h-24 rounded-lg font-black text-2xl uppercase tracking-wide transition-colors ${
+              canProceed
+                ? 'bg-yellow-500 hover:bg-yellow-400 text-black'
+                : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'
+            }`}
+          >
+            {isSubmitting ? 'Creating Shift...' : 'Begin Pre-Start Checks'}
+          </button>
+        </div>
+      </footer>
     </div>
   );
 };
