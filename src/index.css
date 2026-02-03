@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* RSK Digital Site Diary - Industrial UI Globals */
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-slate-900 text-white;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    /* Prevent text selection for industrial feel */
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Optimize for iPad touch */
+  button {
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Remove default focus outlines - we'll use custom high-contrast ones */
+  *:focus {
+    outline: none;
+  }
+
+  /* Custom high-contrast focus for accessibility */
+  button:focus-visible {
+    @apply ring-4 ring-yellow-500 ring-offset-2 ring-offset-slate-900;
+  }
+}
