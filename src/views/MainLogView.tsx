@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { DrillBit, ActivityType, ActivityLog } from '../types/database';
+import type { DrillBit, ActivityType, ActivityLog } from '../types/database';
 import { SelectableCard } from '../components/SelectableCard';
 import { Stepper } from '../components/Stepper';
 import { TimeStepper } from '../components/TimeStepper';

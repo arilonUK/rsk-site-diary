@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Rig, CrewMember } from '../types/database';
+import type { Rig, CrewMember } from '../types/database';
 import { SelectableCard } from '../components/SelectableCard';
 
 /**
