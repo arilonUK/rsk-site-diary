@@ -5,13 +5,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build Commands
 
 ```bash
-npm run dev      # Start Vite dev server at http://localhost:5173
-npm run build    # TypeScript check + Vite production build
-npm run lint     # Run ESLint
-npm run preview  # Preview production build
+npm run dev        # Start Vite dev server at http://localhost:5173
+npm run build      # TypeScript check + Vite production build
+npm run lint       # Run ESLint
+npm run preview    # Preview production build
+npm run test       # Run tests once
+npm run test:watch # Run tests in watch mode
 ```
-
-No test framework is currently configured.
 
 **Always run tests before committing.**
 
