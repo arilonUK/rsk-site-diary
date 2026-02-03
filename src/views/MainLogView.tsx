@@ -341,7 +341,7 @@ export const MainLogView = () => {
             )}
           </div>
 
-          {/* Activity Timeline */}
+          {/* Activity Timeline - Reverse chronological (newest first) */}
           {activityLogs.length > 0 && (
             <div className="bg-slate-800 rounded-lg p-6 space-y-6">
               <h2 className="text-xl uppercase tracking-wide text-white font-bold">
@@ -349,46 +349,71 @@ export const MainLogView = () => {
               </h2>
 
               <div className="space-y-4">
-                {activityLogs.map((log, index) => (
-                  <div
-                    key={log.id}
-                    className={`rounded-lg p-6 border-l-4 ${
-                      log.activity_type === 'DRILLING'
-                        ? 'bg-green-900/30 border-green-600'
-                        : 'bg-red-900/30 border-red-600'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <div
-                          className={`inline-block px-4 py-2 rounded font-bold text-sm uppercase tracking-wide ${
-                            log.activity_type === 'DRILLING'
-                              ? 'bg-green-600 text-white'
-                              : 'bg-red-600 text-white'
-                          }`}
-                        >
-                          {log.activity_type}
+                {[...activityLogs].reverse().map((log) => {
+                  // Find drill bit for this log
+                  const logBit = log.drill_bit_id
+                    ? drillBits.find((b) => b.id === log.drill_bit_id)
+                    : null;
+
+                  // Calculate duration between start and end time
+                  const startTime = new Date(log.start_time);
+                  const endTime = new Date(log.end_time);
+                  const durationMs = endTime.getTime() - startTime.getTime();
+                  const durationMins = Math.round(durationMs / 60000);
+
+                  return (
+                    <div
+                      key={log.id}
+                      className={`rounded-lg p-6 border-l-4 ${
+                        log.activity_type === 'DRILLING'
+                          ? 'bg-green-900/30 border-green-600'
+                          : 'bg-red-900/30 border-red-600'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2">
+                          <div
+                            className={`inline-block px-4 py-2 rounded font-bold text-sm uppercase tracking-wide ${
+                              log.activity_type === 'DRILLING'
+                                ? 'bg-green-600 text-white'
+                                : 'bg-red-600 text-white'
+                            }`}
+                          >
+                            {log.activity_type}
+                          </div>
+                          {log.activity_type === 'DRILLING' && (
+                            <div className="space-y-1">
+                              <div className="text-white font-bold text-lg">
+                                {log.start_depth}m → {log.end_depth}m
+                                <span className="text-slate-400 text-sm ml-2">
+                                  ({(log.end_depth! - log.start_depth!).toFixed(1)}m drilled)
+                                </span>
+                              </div>
+                              {logBit && (
+                                <div className="text-slate-400 text-sm">
+                                  Bit: {logBit.serial_number} ({logBit.type})
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {log.activity_type === 'STANDBY' && (
+                            <div className="space-y-1">
+                              <div className="text-white font-medium text-lg">
+                                {log.standby_reason}
+                              </div>
+                              <div className="text-slate-400 text-sm">
+                                Duration: {durationMins > 0 ? `${durationMins} min` : '< 1 min'}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        {log.activity_type === 'DRILLING' && (
-                          <div className="text-white font-bold text-lg">
-                            {log.start_depth}m → {log.end_depth}m
-                            <span className="text-slate-400 text-sm ml-2">
-                              ({(log.end_depth! - log.start_depth!).toFixed(1)}m drilled)
-                            </span>
-                          </div>
-                        )}
-                        {log.activity_type === 'STANDBY' && (
-                          <div className="text-white font-medium text-lg">
-                            {log.standby_reason}
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-slate-400 text-sm font-medium">
-                        #{index + 1}
+                        <div className="text-slate-400 text-sm font-medium">
+                          #{log.sequence_order}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
