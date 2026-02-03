@@ -51,36 +51,36 @@ export const MainLogView = () => {
 
   // Load lookup data on mount
   useEffect(() => {
-    loadLookupData();
+    let mounted = true;
+
+    const fetchData = async () => {
+      try {
+        const { data: rigsData } = await supabase
+          .from('rigs')
+          .select('*')
+          .order('name');
+        if (mounted && rigsData) setRigs(rigsData);
+
+        const { data: crewData } = await supabase
+          .from('crew_members')
+          .select('*')
+          .order('name');
+        if (mounted && crewData) setCrewMembers(crewData);
+
+        const { data: bitsData } = await supabase
+          .from('drill_bits')
+          .select('*')
+          .eq('status', 'Available')
+          .order('serial_number');
+        if (mounted && bitsData) setDrillBits(bitsData);
+      } catch (error) {
+        console.error('Error loading lookup data:', error);
+      }
+    };
+
+    fetchData();
+    return () => { mounted = false; };
   }, []);
-
-  const loadLookupData = async () => {
-    try {
-      // Load rigs
-      const { data: rigsData } = await supabase
-        .from('rigs')
-        .select('*')
-        .order('name');
-      if (rigsData) setRigs(rigsData);
-
-      // Load crew members
-      const { data: crewData } = await supabase
-        .from('crew_members')
-        .select('*')
-        .order('name');
-      if (crewData) setCrewMembers(crewData);
-
-      // Load available drill bits
-      const { data: bitsData } = await supabase
-        .from('drill_bits')
-        .select('*')
-        .eq('status', 'Available')
-        .order('serial_number');
-      if (bitsData) setDrillBits(bitsData);
-    } catch (error) {
-      console.error('Error loading lookup data:', error);
-    }
-  };
 
   const selectedRig = rigs.find((r) => r.id === selectedRigId);
   const selectedCrew = crewMembers.find((c) => c.id === selectedCrewId);
