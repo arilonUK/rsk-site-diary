@@ -13,6 +13,8 @@ npm run preview  # Preview production build
 
 No test framework is currently configured.
 
+**Always run tests before committing.**
+
 ## Project Overview
 
 RSK Digital Site Diary is a Progressive Web App (PWA) for iPad designed for shift logging on drilling rigs. Target users work in extreme conditions (thick gloves, bright sunlight, rain, dust).
