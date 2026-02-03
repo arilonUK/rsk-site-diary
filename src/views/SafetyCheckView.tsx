@@ -26,7 +26,8 @@ export const SafetyCheckView = () => {
 
   const [checksCompleted, setChecksCompleted] = useState({
     ppe: false,
-    equipment: false,
+    emergencyStops: false,
+    guards: false,
     hazards: false,
     emergency: false,
   });
@@ -97,7 +98,7 @@ export const SafetyCheckView = () => {
       {/* Main Content */}
       <main className="flex-1 p-6 pb-32 overflow-y-auto">
         <div className="max-w-2xl mx-auto space-y-6">
-          {/* Safety Checklist */}
+          {/* Safety Checklist - 5 mandatory checks */}
           <SafetyCheckItem
             label="PPE Equipment Worn"
             sublabel="Hard hat, gloves, safety boots, hi-vis"
@@ -106,10 +107,17 @@ export const SafetyCheckView = () => {
           />
 
           <SafetyCheckItem
-            label="Equipment Inspected"
-            sublabel="Rig systems operational and safe"
-            checked={checksCompleted.equipment}
-            onToggle={() => handleToggle('equipment')}
+            label="Emergency Stops Tested"
+            sublabel="All E-stop buttons functional and accessible"
+            checked={checksCompleted.emergencyStops}
+            onToggle={() => handleToggle('emergencyStops')}
+          />
+
+          <SafetyCheckItem
+            label="Guards in Place"
+            sublabel="All machine guards secure and undamaged"
+            checked={checksCompleted.guards}
+            onToggle={() => handleToggle('guards')}
           />
 
           <SafetyCheckItem
@@ -174,15 +182,16 @@ const SafetyCheckItem = ({ label, sublabel, checked, onToggle }: SafetyCheckItem
         <div className="font-bold text-lg">{label}</div>
         <div className="text-sm opacity-80">{sublabel}</div>
       </div>
-      <div className={`w-16 h-16 rounded-lg flex items-center justify-center flex-shrink-0 ${
-        checked ? 'bg-white' : 'bg-slate-700'
+      {/* Toggle area: 80x80px minimum per spec */}
+      <div className={`w-20 h-20 rounded-lg flex items-center justify-center flex-shrink-0 ${
+        checked ? 'bg-white' : 'bg-red-600'
       }`}>
         {checked ? (
-          <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
           </svg>
         ) : (
-          <span className="text-slate-500 font-bold text-xl">NO</span>
+          <span className="text-white font-black text-xl">NO</span>
         )}
       </div>
     </button>
