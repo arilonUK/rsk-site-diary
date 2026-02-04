@@ -140,9 +140,18 @@ export const EndShiftView = () => {
       <ToastContainer />
       {/* Header */}
       <header className="bg-yellow-500 py-6 px-6">
-        <h1 className="text-2xl uppercase tracking-wide text-black font-black text-center">
-          End Shift
-        </h1>
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <button
+            onClick={() => navigate('/main-log', { state: shiftContext })}
+            className="w-24 h-12 bg-black/20 hover:bg-black/30 text-black font-bold text-sm uppercase rounded-lg"
+          >
+            ← Back
+          </button>
+          <h1 className="text-2xl uppercase tracking-wide text-black font-black">
+            End Shift
+          </h1>
+          <div className="w-24" /> {/* Spacer for centering */}
+        </div>
       </header>
 
       {/* Shift Info */}

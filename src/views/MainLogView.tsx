@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import type { DrillBit, ActivityType, ActivityLog, ShiftContext } from '../types/database';
 import { SelectableCard } from '../components/SelectableCard';
-import { Stepper } from '../components/Stepper';
+import { DepthStepper } from '../components/DepthStepper';
 import { TimeStepper } from '../components/TimeStepper';
 import { useToast } from '../hooks/useToast';
 
@@ -144,10 +144,12 @@ export const MainLogView = () => {
 
     setIsSaving(true);
 
-    // Convert HH:MM times to ISO timestamps for today
-    const today = new Date().toISOString().split('T')[0];
-    const startTimeISO = `${today}T${currentActivity.startTime}:00.000Z`;
-    const endTimeISO = `${today}T${currentActivity.endTime}:00.000Z`;
+    // Convert HH:MM times to ISO timestamps for today (local time)
+    const now = new Date();
+    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    // Store as local time (without Z suffix) - database will interpret as local
+    const startTimeISO = `${localDate}T${currentActivity.startTime}:00`;
+    const endTimeISO = `${localDate}T${currentActivity.endTime}:00`;
 
     // Create activity log entry
     const newLog: ActivityLog = {
@@ -377,8 +379,8 @@ export const MainLogView = () => {
                   </div>
                 </div>
 
-                {/* End Depth - Editable */}
-                <Stepper
+                {/* End Depth - Editable with multi-increment buttons */}
+                <DepthStepper
                   label="End Depth"
                   value={currentActivity.endDepth}
                   onChange={(value) =>
@@ -386,7 +388,6 @@ export const MainLogView = () => {
                   }
                   min={currentActivity.startDepth}
                   max={1000}
-                  step={1}
                   unit="m"
                 />
 
@@ -483,10 +484,10 @@ export const MainLogView = () => {
                   const durationMs = endTime.getTime() - startTime.getTime();
                   const durationMins = Math.round(durationMs / 60000);
 
-                  // Format times for display
+                  // Format times for display (use local time)
                   const formatTimeDisplay = (isoTime: string) => {
                     const date = new Date(isoTime);
-                    return `${date.getUTCHours().toString().padStart(2, '0')}:${date.getUTCMinutes().toString().padStart(2, '0')}`;
+                    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
                   };
 
                   return (
