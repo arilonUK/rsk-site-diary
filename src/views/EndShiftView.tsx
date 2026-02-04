@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import type { ActivityLog } from '../types/database';
+import type { ActivityLog, ShiftContext } from '../types/database';
+import { useToast } from '../hooks/useToast';
 
 /**
  * EndShiftView - End Shift (Spec 5.5)
@@ -14,18 +15,11 @@ import type { ActivityLog } from '../types/database';
  * - High-contrast industrial design
  */
 
-interface ShiftContext {
-  shiftId: string;
-  rigId: string;
-  rigName: string;
-  crewId: string;
-  crewName: string;
-}
-
 export const EndShiftView = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const shiftContext = location.state as ShiftContext | null;
+  const { showToast, ToastContainer } = useToast();
 
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [isConfirmed, setIsConfirmed] = useState(false);
@@ -40,17 +34,20 @@ export const EndShiftView = () => {
 
     const fetchLogs = async () => {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('activity_logs')
           .select('*')
           .eq('shift_id', shiftContext.shiftId)
           .order('sequence_order');
 
-        if (mounted && data) {
+        if (error) {
+          showToast('Could not load activity logs. Please retry.', 'error');
+        } else if (mounted && data) {
           setActivityLogs(data);
         }
       } catch (error) {
         console.error('Error loading activity logs:', error);
+        if (mounted) showToast('Could not load activity logs. Please retry.', 'error');
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -58,7 +55,7 @@ export const EndShiftView = () => {
 
     fetchLogs();
     return () => { mounted = false; };
-  }, [shiftContext]);
+  }, [shiftContext, showToast]);
 
   // Calculate totals
   const drillingLogs = activityLogs.filter((log) => log.activity_type === 'DRILLING');
@@ -109,6 +106,7 @@ export const EndShiftView = () => {
 
       if (error) {
         console.error('Error submitting shift:', error);
+        showToast('Could not submit report. Please try again.', 'error');
         setIsSubmitting(false);
         return;
       }
@@ -117,6 +115,7 @@ export const EndShiftView = () => {
       navigate('/', { replace: true });
     } catch (error) {
       console.error('Error submitting shift:', error);
+      showToast('Could not submit report. Please try again.', 'error');
       setIsSubmitting(false);
     }
   };
@@ -138,6 +137,7 @@ export const EndShiftView = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col">
+      <ToastContainer />
       {/* Header */}
       <header className="bg-yellow-500 py-6 px-6">
         <h1 className="text-2xl uppercase tracking-wide text-black font-black text-center">

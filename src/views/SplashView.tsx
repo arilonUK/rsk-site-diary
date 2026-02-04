@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import type { Rig, CrewMember } from '../types/database';
+import type { Site, Rig, CrewMember } from '../types/database';
 import { SelectableCard } from '../components/SelectableCard';
+import { VERSION_DISPLAY } from '../constants/version';
+import { useToast } from '../hooks/useToast';
 
 /**
- * SplashView - Shift Initialization (Spec 5.1)
+ * SplashView - Shift Initialization (Spec 5.1 - UPDATED)
  *
- * Goal: Quick, accurate setup of the shift context (Rig & Driller)
+ * Goal: Quick, accurate setup of the shift context.
+ * Site must be selected before Rig or Driller.
  *
  * Design Constraints Applied:
  * - Rule #1 (Anti-Typing): Selection cards only, no text inputs
@@ -16,16 +19,20 @@ import { SelectableCard } from '../components/SelectableCard';
  */
 export const SplashView = () => {
   const navigate = useNavigate();
+  const { showToast, ToastContainer } = useToast();
 
   // Lookup data from Supabase
+  const [sites, setSites] = useState<Site[]>([]);
   const [rigs, setRigs] = useState<Rig[]>([]);
   const [crewMembers, setCrewMembers] = useState<CrewMember[]>([]);
 
   // Selection state
+  const [selectedSiteId, setSelectedSiteId] = useState<string>('');
   const [selectedRigId, setSelectedRigId] = useState<string>('');
   const [selectedCrewId, setSelectedCrewId] = useState<string>('');
 
   // UI state
+  const [showSiteSelection, setShowSiteSelection] = useState(false);
   const [showRigSelection, setShowRigSelection] = useState(false);
   const [showCrewSelection, setShowCrewSelection] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,30 +43,53 @@ export const SplashView = () => {
 
     const fetchData = async () => {
       try {
-        const { data: rigsData } = await supabase
+        // Load only active sites
+        const { data: sitesData, error: sitesError } = await supabase
+          .from('sites')
+          .select('*')
+          .eq('is_active', true)
+          .order('name');
+        if (sitesError) {
+          showToast('Could not load sites. Please retry.', 'error');
+        } else if (mounted && sitesData) {
+          setSites(sitesData);
+        }
+
+        const { data: rigsData, error: rigsError } = await supabase
           .from('rigs')
           .select('*')
           .order('name');
-        if (mounted && rigsData) setRigs(rigsData);
+        if (rigsError) {
+          showToast('Could not load rigs. Please retry.', 'error');
+        } else if (mounted && rigsData) {
+          setRigs(rigsData);
+        }
 
-        const { data: crewData } = await supabase
+        const { data: crewData, error: crewError } = await supabase
           .from('crew_members')
           .select('*')
           .order('name');
-        if (mounted && crewData) setCrewMembers(crewData);
+        if (crewError) {
+          showToast('Could not load crew members. Please retry.', 'error');
+        } else if (mounted && crewData) {
+          setCrewMembers(crewData);
+        }
       } catch (error) {
         console.error('Error loading lookup data:', error);
+        if (mounted) showToast('Could not load data. Please retry.', 'error');
       }
     };
 
     fetchData();
     return () => { mounted = false; };
-  }, []);
+  }, [showToast]);
 
+  const selectedSite = sites.find((s) => s.id === selectedSiteId);
   const selectedRig = rigs.find((r) => r.id === selectedRigId);
   const selectedCrew = crewMembers.find((c) => c.id === selectedCrewId);
 
-  const canProceed = selectedRigId && selectedCrewId && !isSubmitting;
+  // All three must be selected to proceed
+  const canProceed = selectedSiteId && selectedRigId && selectedCrewId && !isSubmitting;
 
   const handleBeginChecks = async () => {
     if (!canProceed) return;
@@ -67,11 +97,12 @@ export const SplashView = () => {
     setIsSubmitting(true);
 
     try {
-      // Create new shift record in Supabase
+      // Create new shift record in Supabase with site_id
       const { data: newShift, error } = await supabase
         .from('shifts')
         .insert({
           date: new Date().toISOString().split('T')[0],
+          site_id: selectedSiteId,
           rig_id: selectedRigId,
           lead_driller_id: selectedCrewId,
           safety_check_completed: false,
@@ -82,6 +113,7 @@ export const SplashView = () => {
 
       if (error) {
         console.error('Error creating shift:', error);
+        showToast('Could not start shift. Please try again.', 'error');
         setIsSubmitting(false);
         return;
       }
@@ -90,6 +122,8 @@ export const SplashView = () => {
       navigate('/safety-check', {
         state: {
           shiftId: newShift.id,
+          siteId: selectedSiteId,
+          siteName: selectedSite?.name,
           rigId: selectedRigId,
           rigName: selectedRig?.name,
           crewId: selectedCrewId,
@@ -98,6 +132,7 @@ export const SplashView = () => {
       });
     } catch (error) {
       console.error('Error creating shift:', error);
+      showToast('Could not start shift. Please try again.', 'error');
       setIsSubmitting(false);
     }
   };
@@ -111,6 +146,7 @@ export const SplashView = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col">
+      <ToastContainer />
       {/* Fixed Yellow Header Banner */}
       <header className="bg-yellow-500 py-6 px-6">
         <h1 className="text-2xl uppercase tracking-wide text-black font-black text-center">
@@ -119,7 +155,7 @@ export const SplashView = () => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 p-6 pb-32 overflow-y-auto">
+      <main className="flex-1 p-6 pb-40 overflow-y-auto">
         <div className="max-w-2xl mx-auto space-y-8">
           {/* Date Display */}
           <div className="text-center py-6">
@@ -129,6 +165,44 @@ export const SplashView = () => {
             <p className="text-white text-2xl font-bold">
               {todayFormatted}
             </p>
+          </div>
+
+          {/* Site Selection - FIRST */}
+          <div className="space-y-4">
+            <label className="text-slate-300 font-medium text-lg uppercase tracking-wide">
+              Select Site
+            </label>
+            <button
+              onClick={() => setShowSiteSelection(!showSiteSelection)}
+              className={`w-full min-h-[88px] rounded-lg px-6 flex items-center justify-between font-bold text-lg transition-colors ${
+                selectedSite
+                  ? 'bg-yellow-500 text-black hover:bg-yellow-400'
+                  : 'bg-slate-700 text-white hover:bg-slate-600'
+              }`}
+            >
+              <span>{selectedSite ? selectedSite.name : 'Tap to select site...'}</span>
+              <span className="text-2xl">{showSiteSelection ? '−' : '+'}</span>
+            </button>
+
+            {showSiteSelection && (
+              <div className="space-y-4 pl-4 border-l-4 border-yellow-500">
+                {sites.length === 0 ? (
+                  <p className="text-slate-400 py-4">Loading sites...</p>
+                ) : (
+                  sites.map((site) => (
+                    <SelectableCard
+                      key={site.id}
+                      label={site.name}
+                      selected={site.id === selectedSiteId}
+                      onClick={() => {
+                        setSelectedSiteId(site.id);
+                        setShowSiteSelection(false);
+                      }}
+                    />
+                  ))
+                )}
+              </div>
+            )}
           </div>
 
           {/* Rig Selection */}
@@ -216,7 +290,7 @@ export const SplashView = () => {
 
       {/* Fixed Bottom Action Button */}
       <footer className="fixed bottom-0 left-0 right-0 p-6 bg-slate-900 border-t border-slate-800">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto space-y-4">
           <button
             onClick={handleBeginChecks}
             disabled={!canProceed}
@@ -228,6 +302,10 @@ export const SplashView = () => {
           >
             {isSubmitting ? 'Creating Shift...' : 'Begin Pre-Start Checks'}
           </button>
+          {/* Version Number Display */}
+          <p className="text-slate-600 text-sm text-center">
+            {VERSION_DISPLAY}
+          </p>
         </div>
       </footer>
     </div>

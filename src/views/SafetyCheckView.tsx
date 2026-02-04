@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import type { ShiftContext } from '../types/database';
+import { useToast } from '../hooks/useToast';
 
 /**
  * SafetyCheckView - Safety Gateway (Spec 5.2)
@@ -11,18 +13,11 @@ import { supabase } from '../lib/supabase';
  * Following Prime Directive Rule #1: No keyboard inputs, only tap/toggle interactions.
  */
 
-interface ShiftContext {
-  shiftId: string;
-  rigId: string;
-  rigName: string;
-  crewId: string;
-  crewName: string;
-}
-
 export const SafetyCheckView = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const shiftContext = location.state as ShiftContext | null;
+  const { showToast, ToastContainer } = useToast();
 
   const [checksCompleted, setChecksCompleted] = useState({
     ppe: false,
@@ -57,6 +52,9 @@ export const SafetyCheckView = () => {
 
         if (error) {
           console.error('Error updating shift:', error);
+          showToast('Could not save safety check. Please try again.', 'error');
+          setIsSubmitting(false);
+          return;
         }
       }
 
@@ -64,6 +62,7 @@ export const SafetyCheckView = () => {
       navigate('/main-log', { state: shiftContext });
     } catch (error) {
       console.error('Error updating shift:', error);
+      showToast('Could not save safety check. Please try again.', 'error');
       setIsSubmitting(false);
     }
   };
@@ -85,6 +84,7 @@ export const SafetyCheckView = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col">
+      <ToastContainer />
       {/* Header */}
       <header className="bg-slate-800 py-6 px-6">
         <h1 className="text-2xl uppercase tracking-wide text-white font-black text-center">

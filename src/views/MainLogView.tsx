@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import type { DrillBit, ActivityType, ActivityLog } from '../types/database';
+import type { DrillBit, ActivityType, ActivityLog, ShiftContext } from '../types/database';
 import { SelectableCard } from '../components/SelectableCard';
 import { Stepper } from '../components/Stepper';
 import { TimeStepper } from '../components/TimeStepper';
+import { useToast } from '../hooks/useToast';
 
 /**
  * MainLogView - Main Shift Hub (Spec 5.3) + Add Activity Flow (Spec 5.4)
@@ -16,14 +17,6 @@ import { TimeStepper } from '../components/TimeStepper';
  * - 80px+ touch targets throughout
  * - High-contrast industrial design
  */
-
-interface ShiftContext {
-  shiftId: string;
-  rigId: string;
-  rigName: string;
-  crewId: string;
-  crewName: string;
-}
 
 interface CurrentActivity {
   activityType: ActivityType;
@@ -47,6 +40,7 @@ export const MainLogView = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const shiftContext = location.state as ShiftContext | null;
+  const { showToast, ToastContainer } = useToast();
 
   // Lookup data from Supabase
   const [drillBits, setDrillBits] = useState<DrillBit[]>([]);
@@ -75,20 +69,68 @@ export const MainLogView = () => {
 
     const fetchData = async () => {
       try {
-        const { data: bitsData } = await supabase
+        const { data: bitsData, error } = await supabase
           .from('drill_bits')
           .select('*')
           .eq('status', 'Available')
           .order('serial_number');
+        if (error) {
+          showToast('Could not load drill bits. Please retry.', 'error');
+          return;
+        }
         if (mounted && bitsData) setDrillBits(bitsData);
       } catch (error) {
         console.error('Error loading drill bits:', error);
+        if (mounted) showToast('Could not load drill bits. Please retry.', 'error');
       }
     };
 
     fetchData();
     return () => { mounted = false; };
-  }, []);
+  }, [showToast]);
+
+  // Load existing activity logs for this shift
+  useEffect(() => {
+    if (!shiftContext) return;
+
+    let mounted = true;
+
+    const fetchLogs = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('activity_logs')
+          .select('*')
+          .eq('shift_id', shiftContext.shiftId)
+          .order('sequence_order');
+
+        if (error) {
+          showToast('Could not load activity logs. Please retry.', 'error');
+          return;
+        }
+
+        if (mounted && data) {
+          setActivityLogs(data);
+          // Continue depth from last drilling activity
+          const lastDrillingLog = data
+            .filter(log => log.activity_type === 'DRILLING')
+            .sort((a, b) => b.sequence_order - a.sequence_order)[0];
+          if (lastDrillingLog?.end_depth) {
+            setCurrentActivity(prev => ({
+              ...prev,
+              startDepth: lastDrillingLog.end_depth,
+              endDepth: lastDrillingLog.end_depth,
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error loading activity logs:', error);
+        if (mounted) showToast('Could not load activity logs. Please retry.', 'error');
+      }
+    };
+
+    fetchLogs();
+    return () => { mounted = false; };
+  }, [shiftContext, showToast]);
 
   const selectedBit = drillBits.find((b) => b.id === currentActivity.drillBitId);
 
@@ -144,9 +186,15 @@ export const MainLogView = () => {
 
       if (error) {
         console.error('Error saving activity log:', error);
+        showToast('Could not save activity. Please try again.', 'error');
+        setIsSaving(false);
+        return;
       }
     } catch (error) {
       console.error('Error saving activity log:', error);
+      showToast('Could not save activity. Please try again.', 'error');
+      setIsSaving(false);
+      return;
     }
 
     setActivityLogs([...activityLogs, newLog]);
@@ -203,6 +251,7 @@ export const MainLogView = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col">
+      <ToastContainer />
       {/* Header with Shift Info */}
       <header className="bg-slate-800 py-4 px-6">
         <div className="max-w-3xl mx-auto">
