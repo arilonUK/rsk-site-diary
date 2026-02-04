@@ -12,6 +12,7 @@ npm run preview    # Preview production build
 npm run test       # Run tests once
 npm run test:watch # Run tests in watch mode
 npx vitest src/components/SelectableCard.test.tsx  # Run single test file
+npx tsx scripts/seed.ts  # Seed database with sample data
 ```
 
 **Always run tests before committing.**
@@ -56,9 +57,11 @@ Splash → Safety Check → Main Log → End Shift
 - `src/components/` - Reusable UI components (SelectableCard, Stepper, TimeStepper)
 - `src/lib/supabase.ts` - Supabase client initialization
 - `src/types/database.ts` - TypeScript interfaces matching Supabase schema
+- `src/constants/version.ts` - App version string (must be updated before each Vercel deployment)
 - `src/test/setup.ts` - Vitest setup with jest-dom matchers
+- `scripts/seed.ts` - Database seeding script
 
-**View State Passing:** Views pass shift context via React Router's `useNavigate` state parameter and receive it via `useLocation().state`.
+**View State Passing:** Views pass `ShiftContext` (defined in `types/database.ts`) via React Router's `useNavigate` state parameter and receive it via `useLocation().state`. This context carries `shiftId`, `siteId`, `siteName`, `rigId`, `rigName`, `crewId`, and `crewName` through the flow.
 
 **Activity Log Validation:**
 - DRILLING requires: `drillBitId` selected AND `endDepth > startDepth`
